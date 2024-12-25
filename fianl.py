@@ -61,13 +61,30 @@ class SheetManager:
     def change_value(self, username, sheet_name, row, col, expression):
         if username not in self.users:
             return "User not found."
+        
+        # 查找工作表
         user = self.users[username]
-        if sheet_name not in user.sheets:
-            return "Sheet not found."
-        sheet = user.sheets[sheet_name]
+        sheet = user.sheets.get(sheet_name)
+        if not sheet:  # 如果用户自己的表格中没有找到
+            # 检查是否为其他用户共享的表格
+            sheet = next(
+                (s for u in self.users.values() for name, s in u.sheets.items() 
+                 if name == sheet_name and username in s.access_rights),
+                None
+            )
+            if not sheet:
+                return "Sheet not found."
+        
+        # 检查是否有权限编辑
         if not sheet.is_editable(username):
-            return "This sheet is not accessible."
-        return sheet.set_value(row, col, expression) or "Value updated."
+            current_sheet = "\n".join(", ".join(map(str, row)) for row in sheet.data)
+            return f"This sheet is not accessible.\n{current_sheet}"
+        
+        # 修改值并返回当前表格
+        update_result = sheet.set_value(row, col, expression) or "Value updated."
+        current_sheet = "\n".join(", ".join(map(str, row)) for row in sheet.data)
+        return f"{update_result}\n{current_sheet}"
+
 
     def change_access(self, username, sheet_name, right):
         if username not in self.users:
