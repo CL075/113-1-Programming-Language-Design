@@ -9,9 +9,9 @@ FEATURE_FLAGS = {
     "feature_2": True,
     "feature_3": True,
     "feature_4": True,
-    "feature_5": False,
+    "feature_5": True,
     "feature_6": True,
-    "feature_7": False,
+    "feature_7": True,
 }
 
 
@@ -189,8 +189,12 @@ def option_5(users):
 @feature_toggle("feature_6")
 def option_6(users):
     owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
-    users = collaborate_with_user(users, owner, sheet_name, collaborator, access_right)
-    print(f"Collaboration updated for {collaborator} on {sheet_name}.")
+    if collaborator not in users:
+        print(f"Collaborator \"{collaborator}\" does not exist. Please create the user first.")
+        return users
+
+    users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
+    print(message)
     return users
 
 
