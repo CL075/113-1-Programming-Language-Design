@@ -76,7 +76,7 @@ def find_sheet(users, username, sheet_name): #O
         if sheet_name in data["sheets"] and username in data["sheets"][sheet_name]["access_rights"]:
             return data["sheets"][sheet_name], owner, None
 
-    return None, "Sheet not found."
+    return None, None, "Sheet not found."
 
 def update_sheet_value(sheet, row, col, expression): #O
     try:
@@ -164,8 +164,16 @@ def option_2(users):
 @feature_toggle("feature_3")
 def option_3(users):
     username, sheet_name = input("Enter username and sheet name: ").split()
-    print(check_sheet(users, username, sheet_name))
+
+    # 呼叫 check_sheet 來檢查工作表
+    result = check_sheet(users, username, sheet_name)
+    if "not found" in result.lower():  # 如果返回的結果包含 "not found"
+        print(f"Error: {result}")
+    else:
+        print(f"Sheet content:\n{result}")
+    
     return users
+
 
 
 @feature_toggle("feature_4")
