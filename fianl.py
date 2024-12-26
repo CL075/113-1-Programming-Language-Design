@@ -4,6 +4,24 @@ from functools import reduce
 
 DATA_FILE = "data.txt"
 
+FEATURE_FLAGS = {
+    "feature_5": False,  # 控制需求 5
+    "feature_6": True,   # 控制需求 6
+    "feature_7": False  # 控制需求 7
+}
+
+
+def feature_toggle(feature_name):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if FEATURE_FLAGS.get(feature_name, False):
+                return func(*args, **kwargs)
+            else:
+                print(f"The feature '{feature_name}' is currently disabled.")
+                return None
+        return wrapper
+    return decorator
+
 # Functional Programming Utilities
 def save_to_file(data, file_path):
     with open(file_path, "w") as f:
@@ -98,11 +116,7 @@ def change_access(users, username, sheet_name, access_right):
     return {**users, username: updated_user}, f"Access right updated to {access_right}."
 
 
-def collaborate(users, username, sheet_name, collaborator, access_right):
-    if username not in users:
-        return users, "User not found."
-    if sheet_name not in users[username]["sheets"]:
-        return users, "Sheet not found."
+
 def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnly"):
     # 檢查擁有者是否存在
     if username not in users:
@@ -126,7 +140,20 @@ def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnl
 
     return {**users, username: updated_user}, f"Access right updated for {collaborator}."
 
+@feature_toggle("feature_5")
+def change_sheet_access(users, username, sheet_name, access_right):
+    users, message = change_access(users, username, sheet_name, access_right)
+    print(message)
+    return users
 
+
+@feature_toggle("feature_6")
+def collaborate_with_user(users, owner, sheet_name, collaborator, access_right):
+    users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
+    print("6:", message)
+    return users
+
+@feature_toggle("feature_7")
 def modify_shared_access(users, owner, sheet_name, collaborator, new_access):
     if owner not in users:
         return users, "Owner not found."
@@ -165,9 +192,12 @@ def main():
         print("2. Create a sheet")
         print("3. Check a sheet")
         print("4. Change a value in a sheet")
-        print("5. Change a sheet's access right.")
-        print("6. Collaborate with another user")
-        print("7. Modify shared user's access right")
+        if FEATURE_FLAGS["feature_5"]:
+            print("5. Change a sheet's access right.")
+        if FEATURE_FLAGS["feature_6"]:
+            print("6. Collaborate with another user")
+        if FEATURE_FLAGS["feature_7"]:
+            print("7. Modify shared user's access right")
         print("----------------------------------")
         choice = input("> ")
 
@@ -194,20 +224,30 @@ def main():
             print(f"{message}\n{check_sheet(users, username, sheet_name)}")
 
         elif choice == "5":
-            username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
-            users, message = change_access(users, username, sheet_name, access_right)
-            print(message)
+            if not FEATURE_FLAGS["feature_5"]:
+                print("Feature 5 is disabled.")
+            else:
+                username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
+                users = change_sheet_access(users, username, sheet_name, access_right)
+                print(message)
 
 
         elif choice == "6":
-            owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
-            users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
-            print(message)
+            if not FEATURE_FLAGS["feature_6"]:
+                print("Feature 6 is disabled.")
+            else:
+                owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
+                users = collaborate_with_user(users, owner, sheet_name, collaborator, access_right)
+                print(message)
 
         elif choice == "7":
-            owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
-            users, message = modify_shared_access(users, owner, sheet_name, collaborator, new_access)
-            print(message)
+            if not FEATURE_FLAGS["feature_7"]:
+                print("Feature 7 is disabled.")
+            else:
+                owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
+                users, message = modify_shared_access(users, owner, sheet_name, collaborator, new_access)
+                print(message)
+
 
         else:
             print("Invalid choice. Please try again.")
