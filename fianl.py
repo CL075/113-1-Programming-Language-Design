@@ -70,11 +70,11 @@ def find_sheet(users, username, sheet_name): #O
 
     user_sheets = users[username]["sheets"]
     if sheet_name in user_sheets:
-        return user_sheets[sheet_name], None
+        return user_sheets[sheet_name], username, None
 
     for owner, data in users.items():
         if sheet_name in data["sheets"] and username in data["sheets"][sheet_name]["access_rights"]:
-            return data["sheets"][sheet_name], None
+            return data["sheets"][sheet_name], owner, None
 
     return None, "Sheet not found."
 
@@ -88,7 +88,7 @@ def update_sheet_value(sheet, row, col, expression): #O
         return sheet, "Invalid input."
 
 def update_value(users, username, sheet_name, row, col, expression): #O
-    sheet, error = find_sheet(users, username, sheet_name)
+    sheet, owner, error = find_sheet(users, username, sheet_name)
     if error:
         return users, error
 
@@ -96,12 +96,12 @@ def update_value(users, username, sheet_name, row, col, expression): #O
         return users, "This sheet is not editable."
 
     updated_sheet, message = update_sheet_value(sheet, row, col, expression)
-    updated_user = {
-        **users[username],
-        "sheets": {**users[username]["sheets"], sheet_name: updated_sheet}
+    updated_owner = {
+        **users[owner],
+        "sheets": {**users[owner]["sheets"], sheet_name: updated_sheet}
     }
 
-    return {**users, username: updated_user}, message
+    return {**users, owner: updated_owner}, message
 
 def change_access(users, username, sheet_name, access_right): #O
     if username not in users:
@@ -171,10 +171,18 @@ def option_3(users):
 @feature_toggle("feature_4")
 def option_4(users):
     username, sheet_name = input("Enter username and sheet name: ").split()
-    print(check_sheet(users, username, sheet_name))
+    sheet, owner, error = find_sheet(users, username, sheet_name)
+    if error:
+        print(error)
+        return users
+
+    # 打印工作表內容
+    print(f"Sheet content (owner: {owner}):")
+    print(check_sheet(users, owner, sheet_name))
+
     row, col, expression = input("Enter row, col, and expression: ").split()
     users, message = update_value(users, username, sheet_name, int(row), int(col), expression)
-    print(f"{message}\n{check_sheet(users, username, sheet_name)}")
+    print(f"{message}\n{check_sheet(users, owner, sheet_name)}")
     return users
 
 
@@ -239,11 +247,21 @@ def modify_shared_access(users, owner, sheet_name, collaborator, new_access): #O
     }
     return {**users, owner: updated_owner}, f"Updated \"{collaborator}\"'s access to \"{new_access}\" for \"{sheet_name}\"."
 
-def check_sheet(users, username, sheet_name): #O
-    sheet, error = find_sheet(users, username, sheet_name)
+def check_sheet(users, username, sheet_name):
+    sheet, owner, error = find_sheet(users, username, sheet_name)
     if error:
-        return error
+        return error  # 返回錯誤訊息
+
+    if sheet is None:  # 如果工作表為 None，返回明確錯誤
+        return "Error: Sheet not found."
+
+    # 確保 sheet["data"] 存在並可以被處理
+    if "data" not in sheet or not isinstance(sheet["data"], list):
+        return "Error: Invalid sheet data."
+
+    # 生成工作表的內容字符串
     return "\n".join(", ".join(map(str, row)) for row in sheet["data"])
+
 
 # Main program logic
 def main():
