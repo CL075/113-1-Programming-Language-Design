@@ -1,222 +1,352 @@
 import json
 import os
+from functools import reduce
 
 DATA_FILE = "data.txt"
 
-class User:
-    def __init__(self, name):
-        self.name = name
-        self.sheets = {}
+FEATURE_FLAGS = {
+    "feature_1": True,
+    "feature_2": True,
+    "feature_3": True,
+    "feature_4": True,
+    "feature_5": True,
+    "feature_6": True,
+    "feature_7": True,
+}
 
-class Sheet:
-    def __init__(self, name, owner, rows=3, cols=3):
-        self.name = name
-        self.owner = owner
-        self.data = [[0 for _ in range(cols)] for _ in range(rows)]
-        self.access_rights = {owner: "Editable"}
 
-    def set_value(self, row, col, expression):
+def feature_toggle(feature_name):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if FEATURE_FLAGS.get(feature_name, False):
+                return func(*args, **kwargs)
+            else:
+                print(f"The feature '{feature_name}' is currently disabled.")
+                return None
+        return wrapper
+    return decorator
+
+# Functional Programming Utilities
+def save_to_file(data, file_path):
+    with open(file_path, "w") as f:
+        json.dump(data, f)
+
+def load_from_file(file_path):
+    if not os.path.exists(file_path):
+        return None
+    with open(file_path, "r") as f:
         try:
-            value = eval(expression)
-            self.data[row][col] = value
-        except Exception:
-            return "Invalid input."
+            return json.load(f)
+        except json.JSONDecodeError:
+            print("Warning: Data file is empty or corrupt. Starting fresh.")
+            return None
 
-    def is_editable(self, user):
-        return self.access_rights.get(user, "ReadOnly") == "Editable"
+def create_user(users, name):
+    if name in users:
+        return users, f"User {name} already exists."
+    return {**users, name: {"sheets": {}}}, f"Create a user named \"{name}\"."
 
-    def share(self, collaborator, access_right):
-        self.access_rights[collaborator] = access_right
+def create_sheet(users, username, sheet_name, rows, cols): 
+    if username not in users:
+        return users, f"User {username} does not exist."
+    if sheet_name in users[username]["sheets"]:
+        return users, f"Sheet {sheet_name} already exists."
 
-    def modify_access(self, collaborator, access_right):
-        if collaborator in self.access_rights:
-            self.access_rights[collaborator] = access_right
-            return True
-        return False
+    sheet = {
+        "name": sheet_name,
+        "data": [[0 for _ in range(cols)] for _ in range(rows)],
+        "access_rights": {username: "Editable"}
+    }
+    
+    updated_user = {
+        **users[username],
+        "sheets": {**users[username]["sheets"], sheet_name: sheet}
+    }
+    return {**users, username: updated_user}, f"Create a sheet named \"{sheet_name}\" with size {rows}x{cols} for \"{username}\"."
 
+def find_sheet(users, username, sheet_name):
+    if username not in users:
+        return None, "User not found."
 
-class SheetManager:
-    def __init__(self):
-        self.users = {}
-        self.load_data()
+    user_sheets = users[username]["sheets"]
+    if sheet_name in user_sheets:
+        return user_sheets[sheet_name], username, None
 
-    def save_data(self):
-        data = {
-            "users": list(self.users.keys()),
-            "sheets": {
-                user: {
-                    name: {
-                        "data": sheet.data,
-                        "access_rights": sheet.access_rights
-                    }
-                    for name, sheet in user_obj.sheets.items()
-                }
-                for user, user_obj in self.users.items()
-            },
-        }
-        with open(DATA_FILE, "w") as f:
-            json.dump(data, f)
+    for owner, data in users.items():
+        if sheet_name in data["sheets"] and username in data["sheets"][sheet_name]["access_rights"]:
+            return data["sheets"][sheet_name], owner, None
 
-    def load_data(self):
-        if not os.path.exists(DATA_FILE):  # 文件不存在时直接返回
-            return
-        with open(DATA_FILE, "r") as f:
-            try:
-                data = json.load(f)  # 尝试加载文件
-            except json.JSONDecodeError:
-                print("Warning: Data file is empty or corrupt. Starting fresh.")
-                return
-        # 加载用户和表格数据
-        for user in data["users"]:
-            self.users[user] = User(user)
-        for user, sheets in data["sheets"].items():
-            for sheet_name, sheet_data in sheets.items():
-                sheet = Sheet(sheet_name, user)
-                sheet.data = sheet_data["data"]
-                sheet.access_rights = sheet_data["access_rights"]
-                self.users[user].sheets[sheet_name] = sheet
+    return None, None, "Sheet not found."
 
+def update_sheet_value(sheet, row, col, expression):
+    try:
+        value = eval(expression)
+        updated_data = sheet["data"][:]
+        updated_data[row][col] = value
+        return {**sheet, "data": updated_data}, "Value updated."
+    except Exception:
+        return sheet, "Invalid input."
 
-    def create_user(self, name):
-        if name in self.users:
-            return f"User {name} already exists."
-        self.users[name] = User(name)
-        self.save_data()
-        return f"Create a user named \"{name}\"."
+def update_value(users, username, sheet_name, row, col, expression):
+    sheet, owner, error = find_sheet(users, username, sheet_name)
+    if error:
+        return users, error
 
-    def create_sheet(self, username, sheet_name, rows, cols):
-        if username not in self.users:
-            return f"User {username} does not exist."
-        user = self.users[username]
-        if sheet_name in user.sheets:
-            return f"Sheet {sheet_name} already exists."
-        sheet = Sheet(sheet_name, username, rows, cols)
-        user.sheets[sheet_name] = sheet
-        self.save_data()
-        return f"Create a sheet named \"{sheet_name}\" with size {rows}x{cols} for \"{username}\"."
+    if sheet["access_rights"].get(username, "ReadOnly") != "Editable":
+        return users, "This sheet is not editable."
 
-    def check_sheet(self, username, sheet_name):
-        sheet, error = self.find_sheet(username, sheet_name)
-        if error:
-            return error
-        return "\n".join(", ".join(map(str, row)) for row in sheet.data)
+    updated_sheet, message = update_sheet_value(sheet, row, col, expression)
+    updated_owner = {
+        **users[owner],
+        "sheets": {**users[owner]["sheets"], sheet_name: updated_sheet}
+    }
 
+    return {**users, owner: updated_owner}, message
 
-    def find_sheet(self, username, sheet_name):
-        # 检查用户是否存在
-        if username not in self.users:
-            return None, "User not found."
-        
-        # 检查用户自己的表格
-        user = self.users[username]
-        if sheet_name in user.sheets:
-            return user.sheets[sheet_name], None
-        
-        # 检查是否有其他用户共享给该用户的表格
-        for owner, owner_obj in self.users.items():
-            if sheet_name in owner_obj.sheets:
-                sheet = owner_obj.sheets[sheet_name]
-                if username in sheet.access_rights:
-                    return sheet, None
-        
-        return None, "Sheet not found."
+def change_access(users, username, sheet_name, access_right):
+    if username not in users:
+        return users, "User not found."
+    if sheet_name not in users[username]["sheets"]:
+        return users, "Sheet not found."
 
+    sheet = users[username]["sheets"][sheet_name]
+    sheet["access_rights"][username] = access_right
 
-    def change_value(self, username, sheet_name, row, col, expression):
-        sheet, error = self.find_sheet(username, sheet_name)
-        if error:
-            return error
-        if not sheet.is_editable(username):
-            current_sheet = "\n".join(", ".join(map(str, row)) for row in sheet.data)
-            return f"This sheet is not accessible.\n{current_sheet}"
-        update_result = sheet.set_value(row, col, expression) or "Value updated."
-        self.save_data()
-        current_sheet = "\n".join(", ".join(map(str, row)) for row in sheet.data)
-        return f"{update_result}\n{current_sheet}"
+    updated_user = {
+        **users[username],
+        "sheets": {**users[username]["sheets"], sheet_name: sheet}
+    }
 
-    def change_access(self, username, sheet_name, right):
-        if username not in self.users:
-            return "User not found."
-        user = self.users[username]
-        if sheet_name not in user.sheets:
-            return "Sheet not found."
-        sheet = user.sheets[sheet_name]
-        sheet.access_rights[username] = right
-        self.save_data()
-        return f"Access right updated to {right}."
-
-    def collaborate(self, owner, sheet_name, collaborator, access_right="ReadOnly"):
-        if owner not in self.users or collaborator not in self.users:
-            return "User not found."
-        user = self.users[owner]
-        if sheet_name not in user.sheets:
-            return "Sheet not found."
-        sheet = user.sheets[sheet_name]
-        sheet.share(collaborator, access_right)
-        self.save_data()
-        return f"Share \"{owner}\"'s \"{sheet_name}\" with \"{collaborator}\"."
-
-    def modify_shared_access(self, owner, sheet_name, collaborator, new_access):
-        if owner not in self.users:
-            return "Owner not found."
-        user = self.users[owner]
-        if sheet_name not in user.sheets:
-            return "Sheet not found."
-        sheet = user.sheets[sheet_name]
-        if sheet.modify_access(collaborator, new_access):
-            self.save_data()
-            return f"Updated \"{collaborator}\"'s access to \"{new_access}\" for \"{sheet_name}\"."
-        return f"Collaborator \"{collaborator}\" does not have access to \"{sheet_name}\"."
+    return {**users, username: updated_user}, f"Access right updated to {access_right}."
 
 
 
-manager = SheetManager()
+def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnly"):
+    # 檢查擁有者是否存在
+    if username not in users:
+        return users, "Owner not found."
+    # 檢查工作表是否存在
+    if sheet_name not in users[username]["sheets"]:
+        return users, "Sheet not found."
+    # 檢查協作者是否存在
+    if collaborator not in users:
+        return users, f"Collaborator \"{collaborator}\" does not exist. Please create the user first."
 
-def display_menu():
-    print("---------------Menu---------------")
-    print("1. Create a user")
-    print("2. Create a sheet")
-    print("3. Check a sheet")
-    print("4. Change a value in a sheet")
-    print("5. Change a sheet's access right.")
-    print("6. Collaborate with another user")
-    print("7. Modify shared user's access right")
-    print("----------------------------------")
+    # 共享工作表權限
+    sheet = users[username]["sheets"][sheet_name]
+    updated_rights = {**sheet["access_rights"], collaborator: access_right}
+    updated_sheet = {**sheet, "access_rights": updated_rights}
 
-while True:
-    display_menu()
-    choice = input("> ")
+    updated_user = {
+        **users[username],
+        "sheets": {**users[username]["sheets"], sheet_name: updated_sheet}
+    }
 
-    if choice == "1":
-        username = input("Enter username: ")
-        print(manager.create_user(username))
+    return {**users, username: updated_user}, f"Access right updated for {collaborator}."
 
-    elif choice == "2":
-        username, sheet_name = input("Enter username and sheet name: ").split()
-        rows, cols = map(int, input("Enter number of rows and columns: ").split())
-        print(manager.create_sheet(username, sheet_name, rows, cols))
+@feature_toggle("feature_1")
+def option_1(users):
+    username = input("Enter username: ")
+    users, message = create_user(users, username)
+    print(message)
+    return users
 
-    elif choice == "3":
-        username, sheet_name = input("Enter username and sheet name: ").split()
-        print(manager.check_sheet(username, sheet_name))
 
-    elif choice == "4":
-        username, sheet_name = input("Enter username and sheet name: ").split()
-        print(manager.check_sheet(username, sheet_name))
-        row, col, expression = input("Enter row, col, and expression: ").split()
-        print(manager.change_value(username, sheet_name, int(row), int(col), expression))
+@feature_toggle("feature_2")
+def option_2(users):
+    username, sheet_name = input("Enter username and sheet name: ").split()
+    rows, cols = map(int, input("Enter number of rows and columns: ").split())
+    users, message = create_sheet(users, username, sheet_name, rows, cols)
+    print(message)
+    return users
 
-    elif choice == "5":
-        username, sheet_name, right = input("Enter username, sheet name, and access right: ").split()
-        print(manager.change_access(username, sheet_name, right))
 
-    elif choice == "6":
-        owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
-        print(manager.collaborate(owner, sheet_name, collaborator, access_right))
+@feature_toggle("feature_3")
+def option_3(users):
+    username, sheet_name = input("Enter username and sheet name: ").split()
 
-    elif choice == "7":
-        owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
-        print(manager.modify_shared_access(owner, sheet_name, collaborator, new_access))
-
+    # 呼叫 check_sheet 來檢查工作表
+    result = check_sheet(users, username, sheet_name)
+    if "not found" in result.lower():  # 如果返回的結果包含 "not found"
+        print(f"Error: {result}")
     else:
-        print("Invalid choice. Please try again.")
+        print(f"Sheet content:\n{result}")
+    
+    return users
+
+
+
+@feature_toggle("feature_4")
+def option_4(users):
+    username, sheet_name = input("Enter username and sheet name: ").split()
+    sheet, owner, error = find_sheet(users, username, sheet_name)
+    if error:
+        print(error)
+        return users
+
+    # 打印工作表內容
+    print(f"Sheet content (owner: {owner}):")
+    print(check_sheet(users, owner, sheet_name))
+
+    row, col, expression = input("Enter row, col, and expression: ").split()
+    users, message = update_value(users, username, sheet_name, int(row), int(col), expression)
+    print(f"{message}\n{check_sheet(users, owner, sheet_name)}")
+    return users
+
+
+@feature_toggle("feature_5")
+def option_5(users):
+    username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
+
+    # 呼叫 change_sheet_access 並接收返回值
+    result = change_sheet_access(users, username, sheet_name, access_right)
+
+    # 根據返回值的類型來決定輸出的內容
+    if isinstance(result, str):  # 如果返回的是錯誤訊息
+        print(result)
+        return users
+
+    # 否則，返回更新後的用戶數據並打印成功訊息
+    users = result
+    print(f"Access rights for {sheet_name} updated.")
+    return users
+
+
+@feature_toggle("feature_6")
+def option_6(users):
+    owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
+    if collaborator not in users:
+        print(f"Collaborator \"{collaborator}\" does not exist. Please create the user first.")
+        return users
+
+    users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
+    print(message)
+    return users
+
+
+@feature_toggle("feature_7")
+def option_7(users):
+    owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
+    users, message = modify_shared_access(users, owner, sheet_name, collaborator, new_access)
+    print(message)
+    return users
+
+
+# def change_sheet_access(users, username, sheet_name, access_right): 
+#     users, message = change_access(users, username, sheet_name, access_right)
+#     print(message)
+#     return users
+def change_sheet_access(users, username, sheet_name, access_right):
+    # 檢查擁有者是否存在
+    if username not in users:
+        return "User not found."
+
+    # 檢查工作表是否存在於擁有者名下
+    if sheet_name not in users[username]["sheets"]:
+        return "Sheet not found."
+
+    # 更新工作表的訪問權限
+    sheet = users[username]["sheets"][sheet_name]
+    sheet["access_rights"][username] = access_right
+
+    updated_user = {
+        **users[username],
+        "sheets": {**users[username]["sheets"], sheet_name: sheet}
+    }
+
+    # 返回更新後的用戶數據
+    return {**users, username: updated_user}
+
+
+
+def collaborate_with_user(users, owner, sheet_name, collaborator, access_right):
+    users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
+    print("6:", message)
+    return users
+
+def modify_shared_access(users, owner, sheet_name, collaborator, new_access): 
+    if owner not in users:
+        return users, "Owner not found."
+    if sheet_name not in users[owner]["sheets"]:
+        return users, "Sheet not found."
+
+    sheet = users[owner]["sheets"][sheet_name]
+    if collaborator not in sheet["access_rights"]:
+        return users, f"Collaborator \"{collaborator}\" does not have access to \"{sheet_name}\"."
+
+    updated_rights = {**sheet["access_rights"], collaborator: new_access}
+    updated_sheet = {**sheet, "access_rights": updated_rights}
+
+    updated_owner = {
+        **users[owner],
+        "sheets": {**users[owner]["sheets"], sheet_name: updated_sheet}
+    }
+    return {**users, owner: updated_owner}, f"Updated \"{collaborator}\"'s access to \"{new_access}\" for \"{sheet_name}\"."
+
+def check_sheet(users, username, sheet_name):
+    sheet, owner, error = find_sheet(users, username, sheet_name)
+    if error:
+        return error  # 返回錯誤訊息
+
+    if sheet is None:  # 如果工作表為 None，返回明確錯誤
+        return "Error: Sheet not found."
+
+    # 確保 sheet["data"] 存在並可以被處理
+    if "data" not in sheet or not isinstance(sheet["data"], list):
+        return "Error: Invalid sheet data."
+
+    # 生成工作表的內容字符串
+    return "\n".join(", ".join(map(str, row)) for row in sheet["data"])
+
+
+# Main program logic
+def main():
+    users = {}
+    loaded_data = load_from_file(DATA_FILE)
+    if loaded_data:
+        users = loaded_data.get("users", {})
+
+    while True:
+        print("---------------Menu---------------")
+        print("1. Create a user")
+        print("2. Create a sheet")
+        print("3. Check a sheet")
+        print("4. Change a value in a sheet")
+        if FEATURE_FLAGS["feature_5"]:
+            print("5. Change a sheet's access right.")
+        if FEATURE_FLAGS["feature_6"]:
+            print("6. Collaborate with another user")
+        if FEATURE_FLAGS["feature_7"]:
+            print("7. Modify shared user's access right")
+        print("----------------------------------")
+        choice = input("> ")
+
+        
+        if choice == "1":
+            users = option_1(users)
+
+        elif choice == "2":
+            users = option_2(users)
+
+        elif choice == "3":
+            users = option_3(users)
+
+        elif choice == "4":
+            users = option_4(users)
+
+        elif choice == "5":
+            users = option_5(users)
+
+        elif choice == "6":
+            users = option_6(users)
+
+        elif choice == "7":
+            users = option_7(users)
+
+        else:
+            print("Invalid choice. Please try again.")
+
+        save_to_file({"users": users}, DATA_FILE)
+
+if __name__ == "__main__":
+    main()
