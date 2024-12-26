@@ -1,3 +1,7 @@
+class User:
+    def __init__(self, name):
+        self.name = name
+
 class Sheet:
     def __init__(self, name, rows=3, cols=3):
         self.name = name
@@ -16,12 +20,6 @@ class Sheet:
 
     def share(self, username, access_right):
         self.access_rights[username] = access_right
-
-
-class User:
-    def __init__(self, name):
-        self.name = name
-
 
 class SheetManager:
     def __init__(self):
@@ -84,3 +82,48 @@ class SheetManager:
             return "Sheet not found."
         current_sheet = "\n".join(", ".join(map(str, row)) for row in sheet.data)
         return current_sheet
+
+manager = SheetManager()
+
+def display_menu():
+    print("---------------Menu---------------")
+    print("1. Create a user")
+    print("2. Create a sheet")
+    print("3. Check a sheet")
+    print("4. Change a value in a sheet")
+    print("5. Change a sheet's access right.")
+    print("6. Collaborate with another user")
+    print("----------------------------------")
+
+while True:
+    display_menu()
+    choice = input("> ")
+
+    if choice == "1":
+        username = input("Enter username: ")
+        print(manager.create_user(username))
+
+    elif choice == "2":
+        username, sheet_name = input("Enter username and sheet name: ").split()
+        print(manager.create_sheet(username, sheet_name))
+
+    elif choice == "3":
+        username, sheet_name = input("Enter username and sheet name: ").split()
+        print(manager.check_sheet(username, sheet_name))
+
+    elif choice == "4":
+        username, sheet_name = input("Enter username and sheet name: ").split()
+        print(manager.check_sheet(username, sheet_name))
+        row, col, expression = input("Enter row, col, and expression: ").split()
+        print(manager.change_value(username, sheet_name, int(row), int(col), expression))
+
+    elif choice == "5":
+        username, sheet_name, right = input("Enter username, sheet name, and access right: ").split()
+        print(manager.change_access(username, sheet_name, right))
+
+    elif choice == "6":
+        owner, sheet_name, collaborator = input("Enter owner, sheet name, and collaborator: ").split()
+        print(manager.collaborate(owner, sheet_name, collaborator))
+
+    else:
+        print("Invalid choice. Please try again.")
