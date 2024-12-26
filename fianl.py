@@ -197,7 +197,17 @@ def option_4(users):
 @feature_toggle("feature_5")
 def option_5(users):
     username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
-    users = change_sheet_access(users, username, sheet_name, access_right)
+
+    # 呼叫 change_sheet_access 並接收返回值
+    result = change_sheet_access(users, username, sheet_name, access_right)
+
+    # 根據返回值的類型來決定輸出的內容
+    if isinstance(result, str):  # 如果返回的是錯誤訊息
+        print(result)
+        return users
+
+    # 否則，返回更新後的用戶數據並打印成功訊息
+    users = result
     print(f"Access rights for {sheet_name} updated.")
     return users
 
@@ -222,10 +232,31 @@ def option_7(users):
     return users
 
 
-def change_sheet_access(users, username, sheet_name, access_right): 
-    users, message = change_access(users, username, sheet_name, access_right)
-    print(message)
-    return users
+# def change_sheet_access(users, username, sheet_name, access_right): 
+#     users, message = change_access(users, username, sheet_name, access_right)
+#     print(message)
+#     return users
+def change_sheet_access(users, username, sheet_name, access_right):
+    # 檢查擁有者是否存在
+    if username not in users:
+        return "User not found."
+
+    # 檢查工作表是否存在於擁有者名下
+    if sheet_name not in users[username]["sheets"]:
+        return "Sheet not found."
+
+    # 更新工作表的訪問權限
+    sheet = users[username]["sheets"][sheet_name]
+    sheet["access_rights"][username] = access_right
+
+    updated_user = {
+        **users[username],
+        "sheets": {**users[username]["sheets"], sheet_name: sheet}
+    }
+
+    # 返回更新後的用戶數據
+    return {**users, username: updated_user}
+
 
 
 def collaborate_with_user(users, owner, sheet_name, collaborator, access_right):
