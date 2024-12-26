@@ -5,9 +5,13 @@ from functools import reduce
 DATA_FILE = "data.txt"
 
 FEATURE_FLAGS = {
-    "feature_5": False,  # 控制需求 5
-    "feature_6": True,   # 控制需求 6
-    "feature_7": False  # 控制需求 7
+    "feature_1": True,
+    "feature_2": True,
+    "feature_3": True,
+    "feature_4": True,
+    "feature_5": False,
+    "feature_6": True,
+    "feature_7": False,
 }
 
 
@@ -37,12 +41,12 @@ def load_from_file(file_path):
             print("Warning: Data file is empty or corrupt. Starting fresh.")
             return None
 
-def create_user(users, name):
+def create_user(users, name): #O
     if name in users:
         return users, f"User {name} already exists."
     return {**users, name: {"sheets": {}}}, f"Create a user named \"{name}\"."
 
-def create_sheet(users, username, sheet_name, rows, cols):
+def create_sheet(users, username, sheet_name, rows, cols): #O
     if username not in users:
         return users, f"User {username} does not exist."
     if sheet_name in users[username]["sheets"]:
@@ -60,7 +64,7 @@ def create_sheet(users, username, sheet_name, rows, cols):
     }
     return {**users, username: updated_user}, f"Create a sheet named \"{sheet_name}\" with size {rows}x{cols} for \"{username}\"."
 
-def find_sheet(users, username, sheet_name):
+def find_sheet(users, username, sheet_name): #O
     if username not in users:
         return None, "User not found."
 
@@ -74,7 +78,7 @@ def find_sheet(users, username, sheet_name):
 
     return None, "Sheet not found."
 
-def update_sheet_value(sheet, row, col, expression):
+def update_sheet_value(sheet, row, col, expression): #O
     try:
         value = eval(expression)
         updated_data = sheet["data"][:]
@@ -83,7 +87,7 @@ def update_sheet_value(sheet, row, col, expression):
     except Exception:
         return sheet, "Invalid input."
 
-def update_value(users, username, sheet_name, row, col, expression):
+def update_value(users, username, sheet_name, row, col, expression): #O
     sheet, error = find_sheet(users, username, sheet_name)
     if error:
         return users, error
@@ -99,7 +103,7 @@ def update_value(users, username, sheet_name, row, col, expression):
 
     return {**users, username: updated_user}, message
 
-def change_access(users, username, sheet_name, access_right):
+def change_access(users, username, sheet_name, access_right): #O
     if username not in users:
         return users, "User not found."
     if sheet_name not in users[username]["sheets"]:
@@ -117,7 +121,7 @@ def change_access(users, username, sheet_name, access_right):
 
 
 
-def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnly"):
+def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnly"): #O
     # 檢查擁有者是否存在
     if username not in users:
         return users, "Owner not found."
@@ -140,21 +144,79 @@ def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnl
 
     return {**users, username: updated_user}, f"Access right updated for {collaborator}."
 
+@feature_toggle("feature_1")
+def option_1(users):
+    username = input("Enter username: ")
+    users, message = create_user(users, username)
+    print(message)
+    return users
+
+
+@feature_toggle("feature_2")
+def option_2(users):
+    username, sheet_name = input("Enter username and sheet name: ").split()
+    rows, cols = map(int, input("Enter number of rows and columns: ").split())
+    users, message = create_sheet(users, username, sheet_name, rows, cols)
+    print(message)
+    return users
+
+
+@feature_toggle("feature_3")
+def option_3(users):
+    username, sheet_name = input("Enter username and sheet name: ").split()
+    print(check_sheet(users, username, sheet_name))
+    return users
+
+
+@feature_toggle("feature_4")
+def option_4(users):
+    username, sheet_name = input("Enter username and sheet name: ").split()
+    print(check_sheet(users, username, sheet_name))
+    row, col, expression = input("Enter row, col, and expression: ").split()
+    users, message = update_value(users, username, sheet_name, int(row), int(col), expression)
+    print(f"{message}\n{check_sheet(users, username, sheet_name)}")
+    return users
+
+
 @feature_toggle("feature_5")
-def change_sheet_access(users, username, sheet_name, access_right):
+def option_5(users):
+    username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
+    users = change_sheet_access(users, username, sheet_name, access_right)
+    print(f"Access rights for {sheet_name} updated.")
+    return users
+
+
+@feature_toggle("feature_6")
+def option_6(users):
+    owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
+    users = collaborate_with_user(users, owner, sheet_name, collaborator, access_right)
+    print(f"Collaboration updated for {collaborator} on {sheet_name}.")
+    return users
+
+
+@feature_toggle("feature_7")
+def option_7(users):
+    owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
+    users, message = modify_shared_access(users, owner, sheet_name, collaborator, new_access)
+    print(message)
+    return users
+
+
+# @feature_toggle("feature_5")
+def change_sheet_access(users, username, sheet_name, access_right): #O
     users, message = change_access(users, username, sheet_name, access_right)
     print(message)
     return users
 
 
-@feature_toggle("feature_6")
-def collaborate_with_user(users, owner, sheet_name, collaborator, access_right):
+# @feature_toggle("feature_6")
+def collaborate_with_user(users, owner, sheet_name, collaborator, access_right): #O
     users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
     print("6:", message)
     return users
 
-@feature_toggle("feature_7")
-def modify_shared_access(users, owner, sheet_name, collaborator, new_access):
+# @feature_toggle("feature_7")
+def modify_shared_access(users, owner, sheet_name, collaborator, new_access): #O
     if owner not in users:
         return users, "Owner not found."
     if sheet_name not in users[owner]["sheets"]:
@@ -173,7 +235,7 @@ def modify_shared_access(users, owner, sheet_name, collaborator, new_access):
     }
     return {**users, owner: updated_owner}, f"Updated \"{collaborator}\"'s access to \"{new_access}\" for \"{sheet_name}\"."
 
-def check_sheet(users, username, sheet_name):
+def check_sheet(users, username, sheet_name): #O
     sheet, error = find_sheet(users, username, sheet_name)
     if error:
         return error
@@ -201,52 +263,68 @@ def main():
         print("----------------------------------")
         choice = input("> ")
 
+        # if choice == "1":
+        #     username = input("Enter username: ")
+        #     users, message = create_user(users, username)
+        #     print(message)
+
+        # elif choice == "2":
+        #     username, sheet_name = input("Enter username and sheet name: ").split()
+        #     rows, cols = map(int, input("Enter number of rows and columns: ").split())
+        #     users, message = create_sheet(users, username, sheet_name, rows, cols)
+        #     print(message)
+
+        # elif choice == "3":
+        #     username, sheet_name = input("Enter username and sheet name: ").split()
+        #     print(check_sheet(users, username, sheet_name))
+
+        # elif choice == "4":
+        #     username, sheet_name = input("Enter username and sheet name: ").split()
+        #     print(check_sheet(users, username, sheet_name))
+        #     row, col, expression = input("Enter row, col, and expression: ").split()
+        #     users, message = update_value(users, username, sheet_name, int(row), int(col), expression)
+        #     print(f"{message}\n{check_sheet(users, username, sheet_name)}")
+
+        # elif choice == "5":
+        #     if not FEATURE_FLAGS["feature_5"]:
+        #         print("Feature 5 is disabled.")
+        #     else:
+        #         username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
+        #         users = change_sheet_access(users, username, sheet_name, access_right)
+        #         print(message)
+
+
+        # elif choice == "6":
+        #     print(f"Feature flag for 'feature_6': {FEATURE_FLAGS['feature_6']}")
+        #     if not FEATURE_FLAGS["feature_6"]:
+        #         print("Feature 6 is disabled.")
+        #     else:
+        #         owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
+        #         users = collaborate_with_user(users, owner, sheet_name, collaborator, access_right)
+        #         print("這啥", message)
+
+        # elif choice == "7":
+        #     if not FEATURE_FLAGS["feature_7"]:
+        #         print("Feature 7 is disabled.")
+        #     else:
+        #         owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
+        #         users, message = modify_shared_access(users, owner, sheet_name, collaborator, new_access)
+        #         print(message)
         if choice == "1":
-            username = input("Enter username: ")
-            users, message = create_user(users, username)
-            print(message)
-
+            users = option_1(users)
         elif choice == "2":
-            username, sheet_name = input("Enter username and sheet name: ").split()
-            rows, cols = map(int, input("Enter number of rows and columns: ").split())
-            users, message = create_sheet(users, username, sheet_name, rows, cols)
-            print(message)
-
+            users = option_2(users)
         elif choice == "3":
-            username, sheet_name = input("Enter username and sheet name: ").split()
-            print(check_sheet(users, username, sheet_name))
-
+            users = option_3(users)
         elif choice == "4":
-            username, sheet_name = input("Enter username and sheet name: ").split()
-            print(check_sheet(users, username, sheet_name))
-            row, col, expression = input("Enter row, col, and expression: ").split()
-            users, message = update_value(users, username, sheet_name, int(row), int(col), expression)
-            print(f"{message}\n{check_sheet(users, username, sheet_name)}")
-
+            users = option_4(users)
         elif choice == "5":
-            if not FEATURE_FLAGS["feature_5"]:
-                print("Feature 5 is disabled.")
-            else:
-                username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
-                users = change_sheet_access(users, username, sheet_name, access_right)
-                print(message)
-
-
+            users = option_5(users)
         elif choice == "6":
-            if not FEATURE_FLAGS["feature_6"]:
-                print("Feature 6 is disabled.")
-            else:
-                owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
-                users = collaborate_with_user(users, owner, sheet_name, collaborator, access_right)
-                print(message)
-
+            users = option_6(users)
         elif choice == "7":
-            if not FEATURE_FLAGS["feature_7"]:
-                print("Feature 7 is disabled.")
-            else:
-                owner, sheet_name, collaborator, new_access = input("Enter owner, sheet name, collaborator, and new access right: ").split()
-                users, message = modify_shared_access(users, owner, sheet_name, collaborator, new_access)
-                print(message)
+            users = option_7(users)
+
 
 
         else:
