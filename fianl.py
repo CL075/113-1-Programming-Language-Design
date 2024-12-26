@@ -117,28 +117,22 @@ def change_access(users, username, sheet_name, access_right):
 
 
 
-def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnly"):
-    # 檢查擁有者是否存在
-    if username not in users:
+def collaborate(users, owner, sheet_name, collaborator, access_right="ReadOnly"):
+    # 確認表單擁有者存在
+    if owner not in users:
         return users, "Owner not found."
-    # 檢查工作表是否存在
-    if sheet_name not in users[username]["sheets"]:
+    # 確認表單是否存在
+    if sheet_name not in users[owner]["sheets"]:
         return users, "Sheet not found."
-    # 檢查協作者是否存在
+    # 確認協作者是否存在
     if collaborator not in users:
-        return users, f"Collaborator \"{collaborator}\" does not exist. Please create the user first."
+        return users, f"Collaborator '{collaborator}' does not exist."
 
-    # 共享工作表權限
-    sheet = users[username]["sheets"][sheet_name]
-    updated_rights = {**sheet["access_rights"], collaborator: access_right}
-    updated_sheet = {**sheet, "access_rights": updated_rights}
+    # 更新權限
+    sheet = users[owner]["sheets"][sheet_name]
+    sheet["access_rights"][collaborator] = access_right
 
-    updated_user = {
-        **users[username],
-        "sheets": {**users[username]["sheets"], sheet_name: updated_sheet}
-    }
-
-    return {**users, username: updated_user}, f"Access right updated for {collaborator}."
+    return users, f"Access rights updated for {collaborator}."
 
 @feature_toggle("feature_5")
 def change_sheet_access(users, username, sheet_name, access_right):
@@ -150,7 +144,7 @@ def change_sheet_access(users, username, sheet_name, access_right):
 @feature_toggle("feature_6")
 def collaborate_with_user(users, owner, sheet_name, collaborator, access_right):
     users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
-    print("6:", message)
+    print(message)
     return users
 
 @feature_toggle("feature_7")
@@ -183,6 +177,7 @@ def check_sheet(users, username, sheet_name):
 def main():
     users = {}
     loaded_data = load_from_file(DATA_FILE)
+    current_user = ""
     if loaded_data:
         users = loaded_data.get("users", {})
 
@@ -237,8 +232,13 @@ def main():
                 print("Feature 6 is disabled.")
             else:
                 owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
-                users = collaborate_with_user(users, owner, sheet_name, collaborator, access_right)
+                users, message = collaborate(users, owner, sheet_name, collaborator, access_right)  # 將 owner 作為執行者
                 print(message)
+
+
+
+
+
 
         elif choice == "7":
             if not FEATURE_FLAGS["feature_7"]:
