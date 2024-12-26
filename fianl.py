@@ -9,10 +9,10 @@ class User:
         self.sheets = {}
 
 class Sheet:
-    def __init__(self, name, owner):
+    def __init__(self, name, owner, rows=3, cols=3):
         self.name = name
         self.owner = owner
-        self.data = [[0 for _ in range(3)] for _ in range(3)]
+        self.data = [[0 for _ in range(cols)] for _ in range(rows)]
         self.access_rights = {owner: "Editable"}
 
     def set_value(self, row, col, expression):
@@ -84,16 +84,16 @@ class SheetManager:
         self.save_data()
         return f"Create a user named \"{name}\"."
 
-    def create_sheet(self, username, sheet_name):
+    def create_sheet(self, username, sheet_name, rows, cols):
         if username not in self.users:
             return f"User {username} does not exist."
         user = self.users[username]
         if sheet_name in user.sheets:
             return f"Sheet {sheet_name} already exists."
-        sheet = Sheet(sheet_name, username)
+        sheet = Sheet(sheet_name, username, rows, cols)
         user.sheets[sheet_name] = sheet
         self.save_data()
-        return f"Create a sheet named \"{sheet_name}\" for \"{username}\"."
+        return f"Create a sheet named \"{sheet_name}\" with size {rows}x{cols} for \"{username}\"."
 
     def check_sheet(self, username, sheet_name):
         sheet, error = self.find_sheet(username, sheet_name)
@@ -193,7 +193,8 @@ while True:
 
     elif choice == "2":
         username, sheet_name = input("Enter username and sheet name: ").split()
-        print(manager.create_sheet(username, sheet_name))
+        rows, cols = map(int, input("Enter number of rows and columns: ").split())
+        print(manager.create_sheet(username, sheet_name, rows, cols))
 
     elif choice == "3":
         username, sheet_name = input("Enter username and sheet name: ").split()
