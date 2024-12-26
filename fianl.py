@@ -81,23 +81,40 @@ def update_value(users, username, sheet_name, row, col, expression):
 
     return {**users, username: updated_user}, message
 
-def change_access(users, username, sheet_name, right):
-        if username not in users:
-            return "User not found."
-        user = users[username]
-        if sheet_name not in user.sheets:
-            return "Sheet not found."
-        sheet = user.sheets[sheet_name]
-        sheet.access_rights[username] = right
-        users.save_data()
-        return f"Access right updated to {right}."
-
-def update_access(users, username, sheet_name, collaborator, access_right):
+def change_access(users, username, sheet_name, access_right):
     if username not in users:
         return users, "User not found."
     if sheet_name not in users[username]["sheets"]:
         return users, "Sheet not found."
 
+    sheet = users[username]["sheets"][sheet_name]
+    sheet["access_rights"][username] = access_right
+
+    updated_user = {
+        **users[username],
+        "sheets": {**users[username]["sheets"], sheet_name: sheet}
+    }
+
+    return {**users, username: updated_user}, f"Access right updated to {access_right}."
+
+
+def collaborate(users, username, sheet_name, collaborator, access_right):
+    if username not in users:
+        return users, "User not found."
+    if sheet_name not in users[username]["sheets"]:
+        return users, "Sheet not found."
+def collaborate(users, username, sheet_name, collaborator, access_right="ReadOnly"):
+    # 檢查擁有者是否存在
+    if username not in users:
+        return users, "Owner not found."
+    # 檢查工作表是否存在
+    if sheet_name not in users[username]["sheets"]:
+        return users, "Sheet not found."
+    # 檢查協作者是否存在
+    if collaborator not in users:
+        return users, f"Collaborator \"{collaborator}\" does not exist. Please create the user first."
+
+    # 共享工作表權限
     sheet = users[username]["sheets"][sheet_name]
     updated_rights = {**sheet["access_rights"], collaborator: access_right}
     updated_sheet = {**sheet, "access_rights": updated_rights}
@@ -106,7 +123,9 @@ def update_access(users, username, sheet_name, collaborator, access_right):
         **users[username],
         "sheets": {**users[username]["sheets"], sheet_name: updated_sheet}
     }
+
     return {**users, username: updated_user}, f"Access right updated for {collaborator}."
+
 
 def modify_shared_access(users, owner, sheet_name, collaborator, new_access):
     if owner not in users:
@@ -175,13 +194,14 @@ def main():
             print(f"{message}\n{check_sheet(users, username, sheet_name)}")
 
         elif choice == "5":
-            username, sheet_name, access_right = input("Enter username, sheet name,  and access right: ").split()
+            username, sheet_name, access_right = input("Enter username, sheet name, and access right: ").split()
             users, message = change_access(users, username, sheet_name, access_right)
             print(message)
 
+
         elif choice == "6":
             owner, sheet_name, collaborator, access_right = input("Enter owner, sheet name, collaborator, and access right: ").split()
-            users, message = update_access(users, owner, sheet_name, collaborator, access_right)
+            users, message = collaborate(users, owner, sheet_name, collaborator, access_right)
             print(message)
 
         elif choice == "7":
